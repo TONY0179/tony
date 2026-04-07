@@ -5,24 +5,25 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Catálogo de Productos de Datos - Banco Promerica</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        #dashboard-modal { transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out; }
-        .modal-hidden { opacity: 0; visibility: hidden; }
-    </style>
 </head>
-<body class="bg-gray-50 dark:bg-gray-950 font-sans text-gray-900 dark:text-gray-100">
-    <header class="bg-white dark:bg-gray-900 shadow-sm sticky top-0 z-40">
+<body class="bg-gray-50 font-sans text-gray-900">
+    <header class="bg-white shadow-sm sticky top-0 z-40">
         <div class="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-            <h1 class="text-xl sm:text-2xl font-bold text-gray-800 dark:text-white">
+            <h1 class="text-xl sm:text-2xl font-bold text-gray-800">
                 Catálogo de Productos de Datos <span class="text-green-600">- Banco Promerica</span>
             </h1>
         </div>
     </header>
 
     <main class="max-w-screen-xl mx-auto p-4 sm:p-8">
-        <div class="bg-white dark:bg-gray-900 p-6 rounded-2xl shadow-lg mb-8">
+        <div class="bg-white p-6 rounded-2xl shadow-lg mb-8">
             <input type="text" id="search-input" placeholder="Buscar por nombre, descripción o tag..." class="w-full px-4 py-3 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-green-500 transition" />
-            <div id="domain-filters" class="flex flex-wrap gap-2 mt-4"></div>
+            
+            <div class="flex items-center justify-between mt-4 mb-2">
+                <h3 class="text-sm font-semibold text-gray-600 uppercase">Filtrar por Dominio</h3>
+                <button id="clear-filters-btn" class="text-sm text-green-600 hover:underline">Limpiar selección</button>
+            </div>
+            <div id="domain-filters" class="flex flex-wrap gap-2"></div>
         </div>
         
         <p id="results-count" class="text-sm text-gray-500 mb-6"></p>
@@ -30,34 +31,60 @@
     </main>
 
     <script>
+        // PEGA AQUÍ TODA TU LISTA DE DASH_DATA (LOS 58 QUE TIENES)
         const DASH_DATA = [
-            { id:"1", tipo:"Reporte", nombre:"RPAUT084. Gestión Proactiva", dominio:"Institucional", descripcion:"Seguimiento de indicadores institucionales.", url:"https://app.powerbi.com/reportEmbed?reportId=dce5dbb1-55d3-4d4c-88cd-cb5fbb5ebe9b&autoAuth=true&ctid=355a3609-bc80-4b34-aa61-638d080bd255", owner:"Estefanía Villalobos", patrocinador:"Marcela Morales", tags:["saldos"] },
-            { id:"2", tipo:"Herramienta", nombre:"HERAUT43. Gestión Integral", dominio:"Banca Personas", descripcion:"Recurso para gestión comercial personalizada.", url:"https://app.powerbi.com/reportEmbed?reportId=7405d7fd-a2a6-480a-9c69-f326d8f0f0af&autoAuth=true&ctid=355a3609-bc80-4b34-aa61-638d080bd255", owner:"Estefanía Villalobos", patrocinador:"Eduardo Solano", tags:["crm"] },
-            { id:"3", tipo:"Herramienta", nombre:"HERAUT44. Enfoque Campaña", dominio:"Banca Personas", descripcion:"Resultados de campañas y CRM.", url:"https://app.powerbi.com/reportEmbed?reportId=7ed3e37d-a184-4c66-9a51-7fa32c1cd277&autoAuth=true&ctid=355a3609-bc80-4b34-aa61-638d080bd255", owner:"Estefanía Villalobos", patrocinador:"Eduardo Solano", tags:["campañas"] },
-            { id:"4", tipo:"Reporte", nombre:"RPAUT063. Cantidad de Productos", dominio:"Banca Personas", descripcion:"Análisis de cross sell y profundidad.", url:"https://app.powerbi.com/reportEmbed?reportId=689fe9a5-f6ba-49c6-8c0a-5a96d0d99b52&autoAuth=true&ctid=355a3609-bc80-4b34-aa61-638d080bd255", owner:"Tony Chamorro", patrocinador:"Eduardo Solano", tags:["cross sell"] }
+            { id:"1", tipo:"Reporte", nombre:"RPAUT084. Gestión Proactiva", dominio:"Institucional", descripcion:"Seguimiento de indicadores.", url:"https://app.powerbi.com/...", owner:"Estefanía", patrocinador:"Marcela", tags:[] },
+            { id:"2", tipo:"Herramienta", nombre:"HERAUT43. Gestión Integral", dominio:"Banca Personas", descripcion:"Gestión comercial.", url:"https://app.powerbi.com/...", owner:"Estefanía", patrocinador:"Eduardo", tags:[] },
+            // ... añade el resto aquí
         ];
 
-        const grid = document.getElementById('dashboard-grid');
-        const count = document.getElementById('results-count');
-        const search = document.getElementById('search-input');
+        let activeFilters = [];
+        const DOMAINS = [...new Set(DASH_DATA.map(d => d.dominio))];
 
         function render() {
-            const query = search.value.toLowerCase();
-            const filtered = DASH_DATA.filter(d => d.nombre.toLowerCase().includes(query) || d.descripcion.toLowerCase().includes(query));
+            const query = document.getElementById('search-input').value.toLowerCase();
             
-            count.textContent = `Mostrando ${filtered.length} de ${DASH_DATA.length} recursos.`;
-            
-            grid.innerHTML = filtered.map(d => `
-                <div class="bg-white p-6 rounded-xl shadow-md hover:shadow-xl transition-all cursor-pointer border-l-4 border-green-600">
+            const filtered = DASH_DATA.filter(d => {
+                const matchesSearch = d.nombre.toLowerCase().includes(query) || d.descripcion.toLowerCase().includes(query);
+                const matchesDomain = activeFilters.length === 0 || activeFilters.includes(d.dominio);
+                return matchesSearch && matchesDomain;
+            });
+
+            // Renderizar Filtros
+            document.getElementById('domain-filters').innerHTML = DOMAINS.map(dom => `
+                <button onclick="toggleFilter('${dom}')" class="px-3 py-1.5 rounded-full text-sm transition ${activeFilters.includes(dom) ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}">
+                    ${dom}
+                </button>
+            `).join('');
+
+            // Renderizar Grid
+            document.getElementById('results-count').textContent = `Mostrando ${filtered.length} de ${DASH_DATA.length} recursos.`;
+            document.getElementById('dashboard-grid').innerHTML = filtered.map(d => `
+                <div class="bg-white p-6 rounded-xl shadow-md border-l-4 border-green-600">
                     <div class="text-xs font-bold text-green-600 uppercase">${d.dominio}</div>
                     <h3 class="text-lg font-bold mt-1">${d.nombre}</h3>
                     <p class="text-sm text-gray-500 mt-2">${d.descripcion}</p>
-                    <a href="${d.url}" target="_blank" class="inline-block mt-4 text-sm font-semibold text-green-700">Abrir en Power BI →</a>
+                    <a href="${d.url}" target="_blank" class="inline-block mt-4 text-sm font-semibold text-green-700">Abrir Dashboard →</a>
                 </div>
             `).join('');
         }
 
-        search.addEventListener('input', render);
+        function toggleFilter(dom) {
+            if (activeFilters.includes(dom)) {
+                activeFilters = activeFilters.filter(f => f !== dom);
+            } else {
+                activeFilters.push(dom);
+            }
+            render();
+        }
+
+        document.getElementById('clear-filters-btn').onclick = () => {
+            activeFilters = [];
+            document.getElementById('search-input').value = '';
+            render();
+        };
+
+        document.getElementById('search-input').oninput = render;
         window.onload = render;
     </script>
 </body>
